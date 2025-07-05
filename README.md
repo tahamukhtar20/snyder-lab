@@ -11,7 +11,7 @@ This repository contains the code for this challange and this readme should guid
 - ## Task 0.b: Data Extraction
     [Task 0.b: Data Extraction](./notebooks/data_extraction.ipynb)
 
-    The data was extracted according to the instructions provided in the PDF. While exporting to JSON, an issue arose because the heart rate metric contains `int64` and `float64` values, which are not directly JSON serializable by Python’s standard `json` module. So we had to convert these values to standard Python types (`int` and `float`) before serialization. The code for this task is provided in the notebook linked below.
+    The data was extracted according to the instructions provided in the PDF. While exporting to JSON, an issue arose because the heart rate metric contains `int64` and `float64` values, which are not directly JSON serializable by Python’s standard `json` module. So we had to convert these values to standard Python types (`int` and `float`) before serialization. The code for this task is provided in the notebook linked below and this [file](./misc/create_data.py)
     **Error encountered:**
     ```
     ---------------------------------------------------------------------------
