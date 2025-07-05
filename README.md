@@ -5,11 +5,13 @@ This repository contains the code for this challange and this readme should guid
 # Tasks
 - ## Task 0.a: Data Volume Estimation
     The data volume estimation task as mentioned in the challenge description has been solved in the notebook linked below.
+    
     [Task 0.a: Data Volume Estimation](./notebooks/data_estimates.ipynb)
 
 - ## Task 0.b: Data Extraction
-    The data was extracted according to the instructions provided in the PDF. While exporting to JSON, an issue arose because the heart rate metric contains `int64` and `float64` values, which are not directly JSON serializable by Python’s standard `json` module. Although I could have converted these to Python’s native `int` and `float` types, there was a concern that some values might have very high precision (large floating-point numbers), and manual conversion might risk losing detail. Therefore, I chose to proceed with exporting the data in CSV format, as it correctly preserves the columns and stringifies the values without serialization errors.
+    [Task 0.b: Data Extraction](./notebooks/data_extraction.ipynb)
 
+    The data was extracted according to the instructions provided in the PDF. While exporting to JSON, an issue arose because the heart rate metric contains `int64` and `float64` values, which are not directly JSON serializable by Python’s standard `json` module. So we had to convert these values to standard Python types (`int` and `float`) before serialization. The code for this task is provided in the notebook linked below.
     **Error encountered:**
     ```
     ---------------------------------------------------------------------------
@@ -30,4 +32,10 @@ This repository contains the code for this challange and this readme should guid
         182 
 
     TypeError: Object of type int64 is not JSON serializable
+    ```
+
+    To create the data, there is a simplified version I created for it, you can just run the following command in the terminal while being in project root directory:
+    ```bash
+    chmod +x ./setup.sh
+    ./setup.sh
     ```
