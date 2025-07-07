@@ -1,3 +1,6 @@
 pandas
 numpy
 wearipedia
+psycopg2-binary
+python-dotenv
+requests
