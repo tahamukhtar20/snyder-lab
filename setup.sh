@@ -126,9 +126,6 @@ elif [ "$1" == "2" ]; then
 
     echo "Container status:"
     docker-compose ps
-
-
-
 else
   echo "Invalid argument, please use one of the following to run their respective tasks:"
     echo "0: Data Extraction"   
