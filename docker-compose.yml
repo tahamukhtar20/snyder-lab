@@ -39,5 +39,40 @@ services:
       - ./.env:/app/.env
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fitbit-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    volumes:
+      - ./frontend/src:/app/src
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fitbit-backend
+    depends_on:
+      - ingestion
+      - timescaledb
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./backend/src:/app/src
+    restart: unless-stopped
+
 volumes:
   timescale_data:

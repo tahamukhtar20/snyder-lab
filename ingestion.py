@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg2
@@ -89,85 +90,87 @@ class DataIngestion:
         
         return day_data, simulation_date
     
-    def ingest(self):
+    def ingest(self, days=1):
         """Main ingestion method"""
         print(f"Starting ingestion at {datetime.now()}")
         
         if not self.synthetic:
             raise NotImplementedError("Only synthetic data ingestion is implemented.")
         
-        try:
-            day_data, simulation_date = self._get_next_data_to_process()
-            
-            if day_data is None:
-                return
-            
-            current_day = self._get_simulation_day()
-            print(f"Processing simulation day {current_day + 1}: {simulation_date.strftime('%Y-%m-%d')}")
-            
-            conn = self.get_db_conn
-            cursor = conn.cursor()
+        for day_num in range(days):
+            try:
+                day_data, simulation_date = self._get_next_data_to_process()
+                
+                if day_data is None:
+                    print(f"Stopping ingestion after {day_num} days - simulation complete.")
+                    break
+                
+                current_day = self._get_simulation_day()
+                print(f"Processing simulation day {current_day + 1}: {simulation_date.strftime('%Y-%m-%d')}")
+                
+                conn = self.get_db_conn
+                cursor = conn.cursor()
 
-            participant_id = 1
-            records_processed = 0
+                participant_id = 1
+                records_processed = 0
 
-            heart_rate_day = day_data['heart_rate_day'][0]
-            activities_heart = heart_rate_day['activities-heart'][0]
-            activities_heart_intraday = heart_rate_day['activities-heart-intraday']
+                heart_rate_day = day_data['heart_rate_day'][0]
+                activities_heart = heart_rate_day['activities-heart'][0]
+                activities_heart_intraday = heart_rate_day['activities-heart-intraday']
 
-            date_str = simulation_date.strftime('%Y-%m-%d')
-            
-            value = activities_heart['value']
-            resting_heart_rate = value.get('restingHeartRate', None)
-            
-            cursor.execute("""
-                INSERT INTO daily_summaries (participant_id, date, resting_heart_rate, dataset_interval, dataset_type)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (participant_id, date) DO UPDATE SET
-                    resting_heart_rate = EXCLUDED.resting_heart_rate,
-                    dataset_interval = EXCLUDED.dataset_interval,
-                    dataset_type = EXCLUDED.dataset_type
-            """, (participant_id, date_str, resting_heart_rate, 
-                activities_heart_intraday['datasetInterval'], 
-                activities_heart_intraday['datasetType']))
-
-            heart_rate_zones = value.get('heartRateZones', [])
-            for zone in heart_rate_zones:
+                date_str = simulation_date.strftime('%Y-%m-%d')
+                
+                value = activities_heart['value']
+                resting_heart_rate = value.get('restingHeartRate', None)
+                
                 cursor.execute("""
-                    INSERT INTO heart_rate_zones (participant_id, date, zone_name, min_heart_rate, max_heart_rate, minutes, calories_out)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (participant_id, date, zone_name) DO UPDATE SET
-                        min_heart_rate = EXCLUDED.min_heart_rate,
-                        max_heart_rate = EXCLUDED.max_heart_rate,
-                        minutes = EXCLUDED.minutes,
-                        calories_out = EXCLUDED.calories_out
-                """, (participant_id, date_str, zone['name'], zone['min'], zone['max'], zone['minutes'], zone.get('caloriesOut')))
+                    INSERT INTO daily_summaries (participant_id, date, resting_heart_rate, dataset_interval, dataset_type)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (participant_id, date) DO UPDATE SET
+                        resting_heart_rate = EXCLUDED.resting_heart_rate,
+                        dataset_interval = EXCLUDED.dataset_interval,
+                        dataset_type = EXCLUDED.dataset_type
+                """, (participant_id, date_str, resting_heart_rate, 
+                    activities_heart_intraday['datasetInterval'], 
+                    activities_heart_intraday['datasetType']))
 
-            dataset = activities_heart_intraday['dataset']
-            for entry in dataset:
-                timestamp = self._convert_to_timestamp(date_str, entry['time'])
-                cursor.execute("""
-                    INSERT INTO raw_data (participant_id, timestamp, metric_type, value)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (participant_id, timestamp, metric_type) DO UPDATE SET
-                        value = EXCLUDED.value
-                """, (participant_id, timestamp, 'heart_rate', entry['value']))
-                records_processed += 1
+                heart_rate_zones = value.get('heartRateZones', [])
+                for zone in heart_rate_zones:
+                    cursor.execute("""
+                        INSERT INTO heart_rate_zones (participant_id, date, zone_name, min_heart_rate, max_heart_rate, minutes, calories_out)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (participant_id, date, zone_name) DO UPDATE SET
+                            min_heart_rate = EXCLUDED.min_heart_rate,
+                            max_heart_rate = EXCLUDED.max_heart_rate,
+                            minutes = EXCLUDED.minutes,
+                            calories_out = EXCLUDED.calories_out
+                    """, (participant_id, date_str, zone['name'], zone['min'], zone['max'], zone['minutes'], zone.get('caloriesOut')))
 
-            conn.commit()
-            cursor.close()
-            conn.close()
-            
-            self._update_simulation_day(current_day + 1)
-            
-            print(f"Ingestion completed successfully. Processed {records_processed} records for {date_str}.")
-            
-        except Exception as e:
-            print(f"Error during ingestion: {str(e)}")
-            if 'conn' in locals():
-                conn.rollback()
+                dataset = activities_heart_intraday['dataset']
+                for entry in dataset:
+                    timestamp = self._convert_to_timestamp(date_str, entry['time'])
+                    cursor.execute("""
+                        INSERT INTO raw_data (participant_id, timestamp, metric_type, value)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (participant_id, timestamp, metric_type) DO UPDATE SET
+                            value = EXCLUDED.value
+                    """, (participant_id, timestamp, 'heart_rate', entry['value']))
+                    records_processed += 1
+
+                conn.commit()
+                cursor.close()
                 conn.close()
-            raise
+                
+                self._update_simulation_day(current_day + 1)
+                
+                print(f"Ingestion completed successfully. Processed {records_processed} records for {date_str}.")
+                
+            except Exception as e:
+                print(f"Error during ingestion: {str(e)}")
+                if 'conn' in locals():
+                    conn.rollback()
+                    conn.close()
+                raise
     
     def reset_simulation(self):
         """Reset the simulation to start from day 0"""
@@ -200,18 +203,25 @@ if __name__ == "__main__":
     sys.stdout = Logger(log_file)
     sys.stderr = sys.stdout
     
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--reset":
-            ingestion = DataIngestion(synthetic=True)
-            ingestion.reset_simulation()
-            sys.exit(0)
-        elif sys.argv[1] == "--status":
-            ingestion = DataIngestion(synthetic=True)
-            status = ingestion.get_simulation_status()
-            print(f"Simulation Status: {status['progress']}")
-            print(f"Current Date: {status['current_date']}")
-            sys.exit(0)
+    parser = argparse.ArgumentParser(description="Data Ingestion Script")
+    parser.add_argument('--reset', action='store_true', help="Reset the simulation to start from day 0")
+    parser.add_argument('--status', action='store_true', help="Get current simulation status")
+    parser.add_argument('--days', type=int, default=1, help="For ingestion of multiple days, specify the number of days to ingest (default: 1)")
+    args = parser.parse_args()
     
+    if args.reset:
+        ingestion = DataIngestion(synthetic=True)
+        ingestion.reset_simulation()
+        print("Simulation reset successfully.")
+        sys.exit(0)
+        
+    if args.status:
+        ingestion = DataIngestion(synthetic=True)
+        status = ingestion.get_simulation_status()
+        print(f"Simulation Status: {status['progress']}")
+        print(f"Next Date to Process: {status['current_date']}")
+        sys.exit(0)
+
     try:
         ingestion = DataIngestion(synthetic=True)
         
@@ -219,7 +229,8 @@ if __name__ == "__main__":
         print(f"Simulation Status: {status['progress']}")
         print(f"Next Date to Process: {status['current_date']}")
         
-        ingestion.ingest()
+        ingestion.ingest(days=args.days)
+
     except Exception as e:
         print(f"Fatal error: {str(e)}")
         sys.exit(1)
