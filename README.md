@@ -38,7 +38,7 @@ This repository contains the code for this challange and this readme should guid
     To create the data, there is a simplified version I created for it, you can just run the following command in the terminal while being in project root directory:
     ```bash
     chmod +x ./setup.sh
-    ./setup.sh
+    ./setup.sh 0
     ```
 
 - ## Task 1: Ingestion
@@ -50,3 +50,20 @@ This repository contains the code for this challange and this readme should guid
     ![Rough Schema](./images/image.png)
 
     For running this, please look at the `./setup.sh`, it contains all the commands for this and you can even run it directly to setup the database and the ingestion flow.
+
+    You can directly run this task by running the following command in the terminal:
+    ```bash
+    chmod +x ./setup.sh
+    ./setup.sh 1
+    ```
+
+- ## Task 2: Access
+    The access task is solved by creating FastAPI endpoint that can be used to access the data. After that a simple frontend application is made using React, and charts are visualized using Recharts. You can find both at the following links:
+    - [FastAPI Backend](./backend)
+    - [React Frontend](./frontend)
+    For running this task just run the following command in the terminal:
+    ```bash
+    chmod +x ./setup.sh
+    ./setup.sh 2
+    ```
+    It's supposed to run everything in order after that you can access the frontend at `http://localhost:5173`. All four params which were mentioned in the task are implemented in the frontend. To prevent rendering issues because of huge number of data points, the data is downsampled to 500 points max. These are also containerized using Docker and can be run directly via the `docker-compose.yml` file. The backend is running on port `5000` and the frontend on port `5173`. The frontend is also containerized and can be run using the same `docker-compose.yml` file.
