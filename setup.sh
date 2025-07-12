@@ -6,6 +6,7 @@ if [ -z "$1" ]; then
     echo "0: Data Extraction"
     echo "1: Ingestion"
     echo "2: Access"
+    echo "3: Optimization"
     echo "Example: $0 1"
     exit 1
 fi
@@ -73,9 +74,16 @@ elif [ "$1" == "1" ]; then
 
     echo "Container status:"
     docker-compose ps
-elif [ "$1" == "2" ]; then
-    echo Task 2: Access
 
+elif [ "$1" == "2" ] || [ "$1" == "3" ]; then
+    if [ "$1" == "2" ]; then
+        echo "Task 2: Access"
+    elif [ "$1" == "3" ]; then
+        echo "Task 3: Optimization"
+    else
+        echo "Invalid task number. Please use 2 for Access or 3 for Optimization."
+        exit 1
+    fi
     if [ ! -f .env ]; then
         echo ".env file not found! Please create a .env file with the required environment variables."
         exit 1
@@ -131,5 +139,6 @@ else
     echo "0: Data Extraction"   
     echo "1: Ingestion"
     echo "2: Access"
+    echo "3: Optimization"
     exit 1
 fi
