@@ -2,6 +2,18 @@
 
 This repository contains the code for this challange and this readme should guide you through the entire repository and the performed tasks.
 
+For exploring the first three tasks as those were implemented you should checkout to the commit sha where I pushed the code for the tasks originally. Their code changes later on because of the fourth task. so to explore the first three tasks, run the following command:
+
+```bash
+git checkout f0831f9a716c254dcbc0f4a9f3e0c3897a364a7c
+```
+
+and to come back to the latest commit, run:
+
+```bash
+git checkout main
+```
+
 # Tasks
 - ## Task 0.a: Data Volume Estimation
     The data volume estimation task as mentioned in the challenge description has been solved in the notebook linked below.
@@ -67,3 +79,16 @@ This repository contains the code for this challange and this readme should guid
     ./setup.sh 2
     ```
     It's supposed to run everything in order after that you can access the frontend at `http://localhost:5173`. All four params which were mentioned in the task are implemented in the frontend. To prevent rendering issues because of huge number of data points, the data is downsampled to 500 points max. These are also containerized using Docker and can be run directly via the `docker-compose.yml` file. The backend is running on port `5000` and the frontend on port `5173`. The frontend is also containerized and can be run using the same `docker-compose.yml` file.
+- ## Task 3: Optimization
+    The optimization task basically just improves the implementation, there are not materialized view in timescaleDB which can optimize the queries. The backend and the frontend implementation is adopted accordingly and now use makes better use of best practices. The queries are optimized to use the materialized views and the frontend is updated to use the new endpoints. The code for this task is in the same directories as the previous task, so you can just run the same command as before to run this task, which is `./setup.sh 2` but I've also added support for this task seperately for separation purposes, so you can also run the following command to run this task: 
+    ```bash
+    chmod +x ./setup.sh
+    ./setup.sh 3
+    ```
+    This is build on the previous task so you won't be able to explore the previous task in this commit sha, so you can just checkout to the previous commit sha to explore the previous task. That is given on top of this readme.
+    The main changes in this task are:
+    - Added materialized views to the database to optimize the queries. [init.sql](./init-db/init.sql)
+    - Updated the backend to use the materialized views. [FastAPI Backend](./backend)
+    - Updated the frontend to use the new endpoints. [React Frontend](./frontend)
+    
+    Pagination is supported in the frontend and the backend, it's implemented in a cursor based pagination style which is more efficient for timeseries data. Along with that multiple aggregation styles are available in the frontend. 

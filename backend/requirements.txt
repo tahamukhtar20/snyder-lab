@@ -10,3 +10,4 @@ sqlalchemy
 asyncpg
 databases
 python-dotenv
+pydantic-settings
