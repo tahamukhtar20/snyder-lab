@@ -8,11 +8,17 @@ For exploring the first three tasks as those were implemented you should checkou
 git checkout f0831f9a716c254dcbc0f4a9f3e0c3897a364a7c
 ```
 
-and to come back to the latest commit, run:
+for the other tasks their commit sha is mentioned in their section. And to come back to the latest commit, run:
 
 ```bash
 git checkout main
 ```
+
+Before running any `setup.sh` command, please run
+```bash
+chmod +x ./setup.sh
+```
+to make it executable, otherwise you will get a permission denied error.
 
 # Tasks
 - ## Task 0.a: Data Volume Estimation
@@ -49,7 +55,6 @@ git checkout main
 
     To create the data, there is a simplified version I created for it, you can just run the following command in the terminal while being in project root directory:
     ```bash
-    chmod +x ./setup.sh
     ./setup.sh 0
     ```
 
@@ -65,7 +70,6 @@ git checkout main
 
     You can directly run this task by running the following command in the terminal:
     ```bash
-    chmod +x ./setup.sh
     ./setup.sh 1
     ```
 
@@ -75,14 +79,12 @@ git checkout main
     - [React Frontend](./frontend)
     For running this task just run the following command in the terminal:
     ```bash
-    chmod +x ./setup.sh
     ./setup.sh 2
     ```
     It's supposed to run everything in order after that you can access the frontend at `http://localhost:5173`. All four params which were mentioned in the task are implemented in the frontend. To prevent rendering issues because of huge number of data points, the data is downsampled to 500 points max. These are also containerized using Docker and can be run directly via the `docker-compose.yml` file. The backend is running on port `5000` and the frontend on port `5173`. The frontend is also containerized and can be run using the same `docker-compose.yml` file.
 - ## Task 3: Optimization
     The optimization task basically just improves the implementation, there are not materialized view in timescaleDB which can optimize the queries. The backend and the frontend implementation is adopted accordingly and now use makes better use of best practices. The queries are optimized to use the materialized views and the frontend is updated to use the new endpoints. The code for this task is in the same directories as the previous task, so you can just run the same command as before to run this task, which is `./setup.sh 2` but I've also added support for this task seperately for separation purposes, so you can also run the following command to run this task: 
     ```bash
-    chmod +x ./setup.sh
     ./setup.sh 3
     ```
     This is build on the previous task so you won't be able to explore the previous task in this commit sha, so you can just checkout to the previous commit sha to explore the previous task. That is given on top of this readme.
@@ -91,4 +93,24 @@ git checkout main
     - Updated the backend to use the materialized views. [FastAPI Backend](./backend)
     - Updated the frontend to use the new endpoints. [React Frontend](./frontend)
     
-    Pagination is supported in the frontend and the backend, it's implemented in a cursor based pagination style which is more efficient for timeseries data. Along with that multiple aggregation styles are available in the frontend. 
+    Pagination is supported in the frontend and the backend, it's implemented in a cursor based pagination style which is more efficient for timeseries data. Along with that multiple aggregation styles are available in the frontend. The aggregation is based on timestamps, so those are only going to work when real time ingestion is done, since ingestion is of synthetic data, the aggregation is not going to work as expected. But all of it is implemented in the `init.sql`. In the frontend, the Automatic aggregation is implemented, but since the data might not be aggregated, you might have to select the raw data to see the data in charts. To check the exact implementation of this task, you may checkout to this exact commit SHA.
+    ```bash
+    git checkout b7bb832355a2f7368c711f0ac83a0188c31f71c0
+    ```
+
+    Another thing that the pagination is implemented, and there isn't any limit to how many data points you can fetch in one page for demonstration. So if you enter are really higher number the application might hang, so please be careful with that. Default is set to 100 data points, and there is a downsample set in the frontend as a safety measure, so that the charts don't hang when there are too many data points.
+
+- ## Task 4: Analysis Dashboard
+    There are some issues with this because of the assumptions made implementing previous tasks, and the general limitations of synthetic data. The sleep param in fitbit API doesn't produce any synthetic data, so sleep analysis will just returns dummy data in my endpoints. About a participant not uploading data in some hours, for this case it's only implemented for the one user that we have in our synthetic data. Another thing is that since we don't have a list of users which let's say have provided tokens or haven't, which was one of the requirement of this task. So I make a dummy list of users with just the user one providing token and the rest not having any token. This is just to simulate an actual clinical trial. There is a slight change in aggregation, so that the aggregation which wasn't really observable before, it now happens every 5 minutes and for the past 1000 days, this should be good enough for demonstration purposes, but will need to be updated when real time ingestion is done. Majority things in this implemented are dummy and are just for demonstration purposes because of data constraints. You can run this code by just running the following command in the terminal:
+    ```bash
+    ./setup.sh 4
+    ```
+    This will add dummy users and the data of the user 1 will be the synthetic data that we have, the code for other users isn't available so that's not used in this demonstration. A new table has been added to the schema, which is `users`.
+    The change log for this task is:
+    - Added a new table `users` to the schema, and updated aggregation time [init.sql](./init-db/init.sql)
+    - Updated the backend to use the new table and new routes for dashboard. [FastAPI Backend](./backend)
+    - Updated the frontend to use the new routes and display the different dashboards. [React Frontend](./frontend)
+    - Modularize the frontend code to make it more maintainable and readable.
+
+
+

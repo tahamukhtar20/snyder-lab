@@ -66,21 +66,21 @@ GROUP BY participant_id, time_bucket('1 day', bucket);
 
 SELECT add_continuous_aggregate_policy(
   'hr_1m',
-  start_offset => INTERVAL '2 hours',
+  start_offset => INTERVAL '1000 days',
   end_offset   => INTERVAL '5 minutes',
   schedule_interval => INTERVAL '5 minutes');
 
 SELECT add_continuous_aggregate_policy(
   'hr_1h',
-  start_offset => INTERVAL '7 days',
+  start_offset => INTERVAL '1000 days',
   end_offset   => INTERVAL '2 hours',
-  schedule_interval => INTERVAL '30 minutes');
+  schedule_interval => INTERVAL '5 minutes');
 
 SELECT add_continuous_aggregate_policy(
   'hr_1d',
-  start_offset => INTERVAL '60 days',
+  start_offset => INTERVAL '1000 days',
   end_offset   => INTERVAL '1 day',
-  schedule_interval => INTERVAL '6 hours');
+  schedule_interval => INTERVAL '5 minutes');
 
 ALTER TABLE raw_data SET (timescaledb.compress,
                           timescaledb.compress_segmentby = 'participant_id');
@@ -99,3 +99,10 @@ CREATE INDEX raw_data_pid_time_idx
 
 SET timescaledb.enable_chunk_skipping = on;
 SELECT enable_chunk_skipping('raw_data', 'participant_id');
+
+CREATE TABLE IF NOT EXISTS participant (
+    participant_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    token TEXT UNIQUE
+);
+
