@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import os
 
-START_DATE = "2024-12-01"
-END_DATE = "2024-12-10"
+START_DATE = "2024-01-01"
+END_DATE = "2024-01-30"
 DATA_DIR = "data"
 params = {"seed": 100, "start_date": START_DATE, "end_date": END_DATE}
 

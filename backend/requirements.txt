@@ -11,3 +11,4 @@ asyncpg
 databases
 python-dotenv
 pydantic-settings
+faker

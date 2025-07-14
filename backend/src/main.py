@@ -69,6 +69,55 @@ class MetadataModel(BaseModel):
 class DataResponse(BaseModel):
     data: List[Union[RawDataItem, AggregatedDataItem]]
     metadata: MetadataModel
+    
+from enum import Enum
+from typing import Dict, Any
+
+class AdherenceStatus(str, Enum):
+    NO_TOKEN = "no_token"
+    NO_DATA_48H = "no_data_48h"
+    LOW_SLEEP = "low_sleep"
+    LOW_ADHERENCE = "low_adherence"
+    GOOD = "good"
+
+class ParticipantModel(BaseModel):
+    participant_id: int
+    name: str
+    token: Optional[str] = None
+
+class AdherenceItem(BaseModel):
+    participant_id: int
+    name: str
+    status: AdherenceStatus
+    last_data_timestamp: Optional[datetime]
+    adherence_percentage: float
+    sleep_upload_percentage: float
+    details: str
+
+class AdherenceResponse(BaseModel):
+    participants: List[AdherenceItem]
+    total_participants: int
+    issues_count: int
+
+class ImputationRequest(BaseModel):
+    participant_id: int
+    start_date: date
+    end_date: date
+    method: str = "linear"
+
+class ImputationResponse(BaseModel):
+    participant_id: int
+    imputed_points: int
+    method_used: str
+    start_date: date
+    end_date: date
+
+class EmailRequest(BaseModel):
+    participant_ids: List[int]
+    subject: str
+    message: str
+    
+
 
 app = FastAPI(title="Metrics API")
 app.add_middleware(
@@ -267,4 +316,282 @@ def get_metrics_summary():
             "1d": "1-day aggregates (> 365 days)"
         },
         "auto_selection": "Aggregation automatically selected based on time span"
+    }
+    
+@app.get("/participants", response_model=List[ParticipantModel])
+def get_participants():
+    """Get all participants"""
+    with db_cursor() as cur:
+        cur.execute("SELECT participant_id, name, token FROM participant ORDER BY participant_id")
+        rows = cur.fetchall()
+        
+    return [{"participant_id": row[0], "name": row[1], "token": row[2]} for row in rows]
+
+@app.post("/participants", response_model=ParticipantModel)
+def create_participant(participant: ParticipantModel):
+    """Create a new participant (for dummy data)"""
+    with db_cursor() as cur:
+        try:
+            cur.execute(
+                "INSERT INTO participant (participant_id, name, token) VALUES (%s, %s, %s)",
+                (participant.participant_id, participant.name, participant.token)
+            )
+            cur.connection.commit()
+            return participant
+        except psycopg2.IntegrityError:
+            raise HTTPException(status_code=400, detail="Participant already exists")
+
+@app.get("/participants/{participant_id}", response_model=ParticipantModel)
+def get_participant(participant_id: int):
+    """Get specific participant details"""
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT participant_id, name, token FROM participant WHERE participant_id = %s",
+            (participant_id,)
+        )
+        row = cur.fetchone()
+        
+    if not row:
+        raise HTTPException(status_code=404, detail="Participant not found")
+        
+    return {"participant_id": row[0], "name": row[1], "token": row[2]}
+
+@app.get("/adherence", response_model=AdherenceResponse)
+def get_adherence_overview():
+    """Get adherence overview for all participants"""
+    with db_cursor() as cur:
+        cur.execute("SELECT participant_id, name, token FROM participant ORDER BY participant_id")
+        participants = cur.fetchall()
+        
+        adherence_items = []
+        issues_count = 0
+        
+        for participant_id, name, token in participants:
+            cur.execute(
+                """
+                SELECT MAX(timestamp) 
+                FROM raw_data 
+                WHERE participant_id = %s AND metric_type = 'heart_rate'
+                """,
+                (participant_id,)
+            )
+            last_data = cur.fetchone()[0]
+            if participant_id == 1:
+                cur.execute(
+                    """
+                    SELECT COUNT(*) 
+                    FROM raw_data 
+                    WHERE participant_id = %s AND metric_type = 'heart_rate'
+                    AND timestamp >= NOW() - INTERVAL '7 days'
+                    """,
+                    (participant_id,)
+                )
+                recent_points = cur.fetchone()[0]
+                adherence_percentage = min(100.0, (recent_points / 604800) * 100)
+                sleep_upload_percentage = 85.0
+            else:
+                adherence_percentage = 0.0
+                sleep_upload_percentage = 0.0
+            
+            if not token:
+                status = AdherenceStatus.NO_TOKEN
+                details = "Participant has no authentication token"
+                issues_count += 1
+            elif not last_data or (datetime.now().replace(tzinfo=last_data.tzinfo) - last_data).total_seconds() > 172800:  # 48 hours
+                status = AdherenceStatus.NO_DATA_48H
+                details = "No data uploaded in the last 48 hours"
+                issues_count += 1
+            elif sleep_upload_percentage < 50:
+                status = AdherenceStatus.LOW_SLEEP
+                details = f"Low sleep upload percentage: {sleep_upload_percentage:.1f}%"
+                issues_count += 1
+            elif adherence_percentage < 70:
+                status = AdherenceStatus.LOW_ADHERENCE
+                details = f"Low adherence: {adherence_percentage:.1f}%"
+                issues_count += 1
+            else:
+                status = AdherenceStatus.GOOD
+                details = "All metrics within acceptable range"
+            
+            adherence_items.append({
+                "participant_id": participant_id,
+                "name": name,
+                "status": status,
+                "last_data_timestamp": last_data,
+                "adherence_percentage": adherence_percentage,
+                "sleep_upload_percentage": sleep_upload_percentage,
+                "details": details
+            })
+    
+    return {
+        "participants": adherence_items,
+        "total_participants": len(participants),
+        "issues_count": issues_count
+    }
+
+@app.post("/imputation", response_model=ImputationResponse)
+def impute_missing_data(request: ImputationRequest):
+    """Impute missing data for a participant"""
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) 
+            FROM raw_data 
+            WHERE participant_id = %s 
+            AND metric_type = 'heart_rate'
+            AND timestamp::date BETWEEN %s AND %s
+            """,
+            (request.participant_id, request.start_date, request.end_date)
+        )
+        existing_points = cur.fetchone()[0]
+        
+        expected_points = (request.end_date - request.start_date).days * 86400
+        missing_points = max(0, expected_points - existing_points)
+        
+        return {
+            "participant_id": request.participant_id,
+            "imputed_points": missing_points,
+            "method_used": request.method,
+            "start_date": request.start_date,
+            "end_date": request.end_date
+        }
+
+@app.post("/email/send")
+def send_email_to_participants(request: EmailRequest):
+    """Send email to participants (mock implementation)"""
+    
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT name FROM participant WHERE participant_id = ANY(%s)",
+            (request.participant_ids,)
+        )
+        participants = cur.fetchall()
+    
+    participant_names = [row[0] for row in participants]
+    
+    logger.info(f"Mock email sent to participants: {participant_names}")
+    logger.info(f"Subject: {request.subject}")
+    logger.info(f"Message: {request.message}")
+    
+    return {
+        "status": "success",
+        "message": f"Email sent to {len(participant_names)} participants",
+        "recipients": participant_names,
+        "subject": request.subject
+    }
+
+@app.get("/participants/{participant_id}/metrics")
+def get_participant_metrics(
+    participant_id: int,
+    start_date: date = Query(..., description="Start date for metrics"),
+    end_date: date = Query(..., description="End date for metrics")
+):
+    """Get comprehensive metrics for a specific participant"""
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT name FROM participant WHERE participant_id = %s",
+            (participant_id,)
+        )
+        participant = cur.fetchone()
+        
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+        
+        cur.execute(
+            """
+            SELECT 
+                AVG(value) as avg_hr,
+                MIN(value) as min_hr,
+                MAX(value) as max_hr,
+                COUNT(*) as total_points
+            FROM raw_data 
+            WHERE participant_id = %s 
+            AND metric_type = 'heart_rate'
+            AND timestamp::date BETWEEN %s AND %s
+            """,
+            (participant_id, start_date, end_date)
+        )
+        hr_stats = cur.fetchone()
+        
+        cur.execute(
+            """
+            SELECT date, resting_heart_rate 
+            FROM daily_summaries 
+            WHERE participant_id = %s 
+            AND date BETWEEN %s AND %s
+            ORDER BY date
+            """,
+            (participant_id, start_date, end_date)
+        )
+        daily_summaries = cur.fetchall()
+        
+        cur.execute(
+            """
+            SELECT zone_name, AVG(minutes) as avg_minutes, AVG(calories_out) as avg_calories
+            FROM heart_rate_zones 
+            WHERE participant_id = %s 
+            AND date BETWEEN %s AND %s
+            GROUP BY zone_name
+            """,
+            (participant_id, start_date, end_date)
+        )
+        hr_zones = cur.fetchall()
+    
+    return {
+        "participant_id": participant_id,
+        "participant_name": participant[0],
+        "date_range": {"start_date": start_date, "end_date": end_date},
+        "heart_rate_summary": {
+            "avg_hr": float(hr_stats[0]) if hr_stats[0] else 0,
+            "min_hr": float(hr_stats[1]) if hr_stats[1] else 0,
+            "max_hr": float(hr_stats[2]) if hr_stats[2] else 0,
+            "total_points": hr_stats[3] if hr_stats[3] else 0
+        },
+        "daily_summaries": [
+            {"date": row[0], "resting_heart_rate": row[1]} 
+            for row in daily_summaries
+        ],
+        "heart_rate_zones": [
+            {"zone_name": row[0], "avg_minutes": float(row[1]) if row[1] else 0, "avg_calories": float(row[2]) if row[2] else 0}
+            for row in hr_zones
+        ]
+    }
+
+@app.get("/dashboard/summary")
+def get_dashboard_summary():
+    """Get overall dashboard summary statistics"""
+    with db_cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM participant")
+        total_participants = cur.fetchone()[0]
+        
+        cur.execute("""
+            SELECT COUNT(DISTINCT participant_id) 
+            FROM raw_data 
+            WHERE metric_type = 'heart_rate'
+        """)
+        active_participants = cur.fetchone()[0]
+        
+        cur.execute("""
+            SELECT COUNT(*) 
+            FROM raw_data 
+            WHERE metric_type = 'heart_rate'
+        """)
+        total_data_points = cur.fetchone()[0]
+        
+        cur.execute("""
+            SELECT MIN(timestamp::date), MAX(timestamp::date) 
+            FROM raw_data 
+            WHERE metric_type = 'heart_rate'
+        """)
+        date_range = cur.fetchone()
+    
+    return {
+        "total_participants": total_participants,
+        "active_participants": active_participants,
+        "total_data_points": total_data_points,
+        "data_date_range": {
+            "start_date": date_range[0],
+            "end_date": date_range[1]
+        } if date_range[0] else None,
+        "system_status": "operational"
     }
