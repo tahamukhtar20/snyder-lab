@@ -4,6 +4,8 @@ This repository contains the code for this challange and this readme should guid
 
 For exploring the first three tasks as those were implemented you should checkout to the commit sha where I pushed the code for the tasks originally. Their code changes later on because of the fourth task. so to explore the first three tasks, run the following command:
 
+Please make sure docker, docker-compose and python is installed, and Python must be accessible by the python command, not python3, for the combined scripts to work; otherwise, changes in the `setup.sh` file will be required.
+
 ```bash
 git checkout f0831f9a716c254dcbc0f4a9f3e0c3897a364a7c
 ```
