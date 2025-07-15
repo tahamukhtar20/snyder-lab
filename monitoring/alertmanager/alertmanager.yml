@@ -1,0 +1,70 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'tahamukhtar20@gmail.com'
+  smtp_auth_username: 'tahamukhtar20@gmail.com'
+  smtp_auth_password_file: '/etc/alertmanager/smtp_password.txt'
+  smtp_require_tls: true
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 15s
+  group_interval: 15s
+  repeat_interval: 30m
+  receiver: 'email-alerts'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+
+receivers:
+  - name: 'email-alerts'
+    email_configs:
+      - to: 'tahamukhtar20@gmail.com'
+        headers:
+          subject: 'Fitbit Pipeline Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ .Labels }}
+          {{ end }}
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'tahamukhtar20@gmail.com'
+        headers:
+          subject: 'CRITICAL: Fitbit Pipeline Alert'
+        text: |
+          CRITICAL ALERT TRIGGERED
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ .Labels }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'tahamukhtar20@gmail.com'
+        headers:
+          subject: 'WARNING: Fitbit Pipeline Alert'
+        text: |
+          WARNING ALERT TRIGGERED
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ .Labels }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

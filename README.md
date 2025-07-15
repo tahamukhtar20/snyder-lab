@@ -112,5 +112,28 @@ to make it executable, otherwise you will get a permission denied error.
     - Updated the frontend to use the new routes and display the different dashboards. [React Frontend](./frontend)
     - Modularize the frontend code to make it more maintainable and readable.
 
+    You can explore the exact task implementation by checking out to this commit sha:
+    ```bash
+    git checkout 488910041e553589a25100a0faaf3b4a04787afa
+    ```
+
+- ## Task 5: Monitoring
+    This task required a lot of research and study because I haven't worked with monitoring tools before. Here are some links which you may use to see my implementation:
+
+    - [http://localhost:9090/targets](http://localhost:9090/targets) - This is the Prometheus targets page, where you can see the targets that are being monitored.
+    Ingestion might show up as unhealthy because it turns off after ingetion, but that is expected behaviour.
+    - [http://localhost:3000/d/fitbit-monitoring/fitbit-monitoring-dashboard](http://localhost:3000/d/fitbit-monitoring/fitbit-monitoring-dashboard) - This is the Grafana dashboard, where you can see the metrics being monitored.
+    - [http://localhost:8080/containers/](http://localhost:8080/containers/) - This is the cAdvisor dashboard, where you can see the container metrics being monitored.
+    - [http://localhost:9093/#/alerts](http://localhost:9093/#/alerts) - This is the Alertmanager dashboard, where you can see the alerts being monitored.
+
+    For running this task, you can just run the following command in the terminal:
+    ```bash
+    ./setup.sh 5
+    ```
+
+    But before that kindly create the following file
+    `./monitoring/alertmanager/smtp_password.txt`
+    with the contents provided in the email, and kindly update the alertmanager.yml with the email you need to send the emails to. I'm sure there are cleaner ways to do this but due to time constraints I had to do it this way. The ingestion will send alerts, and the container will stop after ingestion so there will be an email regarding that as well. The email will be sent to the email you provided in the `alertmanager.yml` file.
 
 
+The ingestion of all tasks has been reduced to 2 days because 30 took very long, you can easily change that via the `./setup.sh` file.
