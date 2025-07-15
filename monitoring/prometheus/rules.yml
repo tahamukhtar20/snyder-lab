@@ -1,0 +1,38 @@
+groups:
+  - name: fitbit-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} requests per second"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }} seconds"
+
+      - alert: DatabaseConnectionIssues
+        expr: active_database_connections > 50
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection count"
+          description: "{{ $value }} active database connections"
+
+      - alert: IngestionFailure
+        expr: increase(data_points_processed_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Data ingestion has stopped"
+          description: "No data points processed in the last 5 minutes"

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'fitbit-dashboards'
+    orgId: 1
+    folder: 'Fitbit Monitoring'
+    type: file
+    updateIntervalSeconds: 10
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

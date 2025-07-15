@@ -8,6 +8,7 @@ if [ -z "$1" ]; then
     echo "2: Access"
     echo "3: Optimization"
     echo "4: Analysis Dashboard"
+    echo "5: Monitoring"
     echo "Example: $0 1"
     exit 1
 fi
@@ -131,13 +132,20 @@ elif [ "$1" == "2" ] || [ "$1" == "3" ]; then
         exit 1
     fi
 
-    docker-compose exec -T ingestion python ingestion.py --days 30
+    docker-compose exec -T ingestion python ingestion.py --days 2
 
     echo "Container status:"
     docker-compose ps
 
-elif [ "$1" == "4" ]; then
-    echo "Task 4: Analysis Dashboard"
+elif [ "$1" == "4" ] || [ "$1" == "5" ]; then
+    if [ "$1" == "4" ]; then
+        echo "Task 4: Analysis Dashboard"
+    elif [ "$1" == "5" ]; then
+        echo "Task 5: Monitoring"
+    else
+        echo "Invalid task number. Please use 4 for Analysis Dashboard or 5 for Monitoring."
+        exit 1
+    fi
 
     if [ ! -f .env ]; then
         echo ".env file not found! Please create a .env file with the required environment variables."
@@ -163,7 +171,7 @@ elif [ "$1" == "4" ]; then
     docker-compose down -v
     docker-compose rm -f
     docker-compose build --no-cache
-    docker-compose up -d --build ingestion timescaledb frontend backend
+    docker-compose up -d --build
 
     echo "Waiting for TimescaleDB to be ready..."
     sleep 10
@@ -187,7 +195,7 @@ elif [ "$1" == "4" ]; then
 
     docker-compose exec -T ingestion python users.py
 
-    docker-compose exec -T ingestion python ingestion.py --days 30
+    docker-compose exec -T ingestion python ingestion.py --days 2
 
     echo "Container status:"
     docker-compose ps
@@ -199,5 +207,6 @@ else
     echo "2: Access"
     echo "3: Optimization"
     echo "4: Analysis Dashboard"
+    echo "5: Monitoring"
     exit 1
 fi

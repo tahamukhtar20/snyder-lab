@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -9,6 +9,15 @@ from dotenv import load_dotenv
 from typing import List, Optional, Union
 import logging
 from contextlib import contextmanager
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+import time
+from enum import Enum
+from typing import Dict, Any
+
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency')
+ACTIVE_CONNECTIONS = Gauge('active_database_connections', 'Active database connections')
+DATA_POINTS_PROCESSED = Counter('data_points_processed_total', 'Total data points processed')
 
 class Config(BaseSettings):
     DB_HOST: str = Field(..., env="DB_HOST")
@@ -30,6 +39,7 @@ file_handler = logging.FileHandler('app.log')
 
 @contextmanager
 def db_cursor():
+    ACTIVE_CONNECTIONS.inc()
     conn = psycopg2.connect(
         host=config.DB_HOST,
         port=config.DB_PORT,
@@ -40,6 +50,7 @@ def db_cursor():
     try:
         yield conn.cursor()
     finally:
+        ACTIVE_CONNECTIONS.dec()
         conn.close()
 
 class RawDataItem(BaseModel):
@@ -69,9 +80,6 @@ class MetadataModel(BaseModel):
 class DataResponse(BaseModel):
     data: List[Union[RawDataItem, AggregatedDataItem]]
     metadata: MetadataModel
-    
-from enum import Enum
-from typing import Dict, Any
 
 class AdherenceStatus(str, Enum):
     NO_TOKEN = "no_token"
@@ -127,6 +135,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    REQUEST_COUNT.labels(
+        method=request.method,
+        endpoint=request.url.path,
+        status=response.status_code
+    ).inc()
+    
+    REQUEST_LATENCY.observe(time.time() - start_time)
+    
+    return response
 
 def determine_aggregation_level(start_date: date, end_date: date) -> str:
     time_span = (end_date - start_date).days
@@ -304,6 +328,10 @@ def health_check():
         return {"status": "ok", "database": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+
+@app.get("/metrics")
+def get_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/metrics/summary")
 def get_metrics_summary():

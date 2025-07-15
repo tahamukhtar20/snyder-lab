@@ -4,3 +4,4 @@
 __pycache__/
 last_run.json
 *.log
+/monitoring/alertmanager/smtp_password.txt

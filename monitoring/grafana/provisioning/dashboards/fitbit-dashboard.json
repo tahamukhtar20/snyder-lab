@@ -1,0 +1,121 @@
+{
+  "id": null,
+  "uid": "fitbit-monitoring",
+  "title": "Fitbit Monitoring Dashboard",
+  "tags": [
+    "fitbit",
+    "monitoring"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Data Points Processed",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(data_points_processed_total[5m])",
+          "legendFormat": "Data points/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Records Processed by Type",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(records_processed_total[5m])",
+          "legendFormat": "{{ data_type }}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Active Database Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "active_database_connections",
+          "legendFormat": "Active connections",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1
+}
